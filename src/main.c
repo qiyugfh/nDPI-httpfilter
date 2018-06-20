@@ -201,12 +201,13 @@ static void pcap_process_packet(u_char *args, const struct pcap_pkthdr *header, 
     while(ndpi_thread_info[thread_id].num_idle_flows > 0){
       /*  search and delete the idle flow from the "ndpi_flow_root" (see struct reader thread) - here flows are the node of a b-tree */
       ndpi_tdelete(ndpi_thread_info[thread_id].idle_flows[--ndpi_thread_info[thread_id].num_idle_flows], 
-      &ndpi_thread_info[thread_id].workflow->ndpi_flows_root[ndpi_thread_info[thread_id].idle_scan_idx],
+                    &ndpi_thread_info[thread_id].workflow->ndpi_flows_root[ndpi_thread_info[thread_id].idle_scan_idx],
       ndpi_workflow_node_cmp);
 
 	  /* free the memory associated to idle flow in "idle_flows" - (see struct reader thread) */
-      ndpi_free_flow_info_half(ndpi_thread_info[thread_id].idle_flows[ndpi_thread_info[thread_id].num_idle_flows]); 
-	  ndpi_free(ndpi_thread_info[thread_id].idle_flows[ndpi_thread_info[thread_id].num_idle_flows]);
+      // ndpi_free_flow_info_half(ndpi_thread_info[thread_id].idle_flows[ndpi_thread_info[thread_id].num_idle_flows]); 
+	  // ndpi_free(ndpi_thread_info[thread_id].idle_flows[ndpi_thread_info[thread_id].num_idle_flows]);
+	  ndpi_flow_info_freer(ndpi_thread_info[thread_id].idle_flows[ndpi_thread_info[thread_id].num_idle_flows]);
 	}
 
 	if(++ndpi_thread_info[thread_id].idle_scan_idx == ndpi_thread_info[thread_id].workflow->prefs.num_roots){
@@ -214,6 +215,12 @@ static void pcap_process_packet(u_char *args, const struct pcap_pkthdr *header, 
 	}
 
 	ndpi_thread_info[thread_id].last_idle_scan_time = ndpi_thread_info[thread_id].workflow->last_time;
+  }
+
+  /*check for buffer changes*/
+  if(memcmp(packet, packet_checked, header->caplen) != 0){
+    log_error("ingress packet wad modified by nDPI: this should not happen [packetId=%lu, caplen=%u]",
+		(unsigned long) ndpi_thread_info[thread_id].workflow->stats.raw_packet_count, header->caplen);
   }
   
   free(packet_checked);
@@ -233,14 +240,16 @@ static void main_process_do(){
   int thread_id = 0;
   int ret = 0;
   void *thd_res = NULL;
-  
+
+  memset(ndpi_thread_info, 0, sizeof(ndpi_thread_info));
+
   for(thread_id = 0; thread_id < num_threads; thread_id++){
-	pcap_t *cap = NULL;
-    if((cap = init_pcap(sniff_devs[thread_id])) == NULL){
+	pcap_t *pcap = NULL;
+    if((pcap = init_pcap(sniff_devs[thread_id])) == NULL){
       exit(RET_ERROR);
 	}
 	
-	setup_detection(thread_id, cap);
+	setup_detection(thread_id, pcap);
   }
 
   for(thread_id = 0; thread_id < num_threads; thread_id++){
@@ -270,25 +279,32 @@ static void terminate_detection(u_int16_t thread_id){
   ndpi_workflow_free(ndpi_thread_info[thread_id].workflow);
 }
 
-
-static void main_process_terminate(int sid){
-  log_debug("process %ld recive the ternimate signal %d, now exit ...\n", (long)getpid(), sid);
-  shutdown_app = 1;
+static void threads_terminate(){
   for(int thread_id = 0; thread_id < num_threads; thread_id++){
-    if(ndpi_thread_info[thread_id].workflow->pcap_handle != NULL){
-      pcap_close(ndpi_thread_info[thread_id].workflow->pcap_handle);
+	pcap_t *pcap = ndpi_thread_info[thread_id].workflow->pcap_handle;
+    if(pcap != NULL){
+	  pcap_breakloop(pcap);	
+      pcap_close(pcap);
 	}
 
 	terminate_detection(thread_id);
   }
+}
+
+static void main_process_terminate(int sid){
+  log_debug("process %ld recive the ternimate signal %d, now exit ...\n", (long)getpid(), sid);
+  shutdown_app = 1;
+  threads_terminate();
   exit(RET_SUCCESS);
 }
 
 
 int main(int argc, char **argv){
+#if 0
   if(detect_process(project_name) != RET_SUCCESS){
     return RET_ERROR;
   }  	
+#endif
 
   char *config_path = "../ndpi-httpfilter.conf";
   char *logging_path = "../ndpi-logging.conf";
@@ -321,7 +337,7 @@ int main(int argc, char **argv){
   signal(SIGINT, main_process_terminate);
  
   log_debug("program start ...");
-  
+
   main_process_do();
 
   return RET_SUCCESS;

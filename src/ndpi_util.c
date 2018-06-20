@@ -601,69 +601,77 @@ static char* ipProto2Name(u_int16_t proto_id) {
 
 
 static void print_flow(struct ndpi_flow_info *flow, struct ndpi_workflow *workflow){
-  char info[MAX_BUF_LEN * 2] = {0};
-  sprintf(info, "%s%s%s:%u %s %s%s%s:%u ",
-    	  (flow->ip_version == 6) ? "[" : "",
-    	  flow->src_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->src_port),
-    	  flow->bidirectional ? "<->" : "->",
-    	  (flow->ip_version == 6) ? "[" : "",
-    	  flow->dst_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->dst_port));
+  if(flow == NULL || workflow == NULL){
+	log_warn("can't print NULL flow");
+	return;
+  }
 
-  sprintf(info + strlen(info), "[%s]", ipProto2Name(flow->protocol));
+  char info[2048] = {0};
+
+  sprintf(info, "{");
+  sprintf(info + strlen(info), "\"src_name\":\"%s\"", flow->src_name);
+  sprintf(info + strlen(info), ", \"src_port\":\"%u\"", ntohs(flow->src_port));
+  sprintf(info + strlen(info), ", \"dst_name\":\"%s\"", flow->dst_name);
+  sprintf(info + strlen(info), ", \"dst_port\":\"%u\"", ntohs(flow->dst_port));
+  sprintf(info + strlen(info), ", \"ip_proto\":\"%s\"", ipProto2Name(flow->protocol));
 
   if(flow->vlan_id > 0){
-    sprintf(info + strlen(info), "[VLAN: %u]", flow->vlan_id);
+    sprintf(info + strlen(info), ", \"vlan\":\"%u\"", flow->vlan_id);
   }
 
   char *app_protocol_name = ndpi_get_proto_name(workflow->ndpi_struct, flow->detected_protocol.app_protocol);
   char *master_protocol_name = ndpi_get_proto_name(workflow->ndpi_struct, flow->detected_protocol.master_protocol);
   if(flow->detected_protocol.master_protocol){
     char buf[64] = {0};
-    sprintf(info + strlen(info), "[proto: %u.%u/%s]", 
+    sprintf(info + strlen(info), ", \"proto\":\"%u.%u/%s\"", 
 		flow->detected_protocol.master_protocol, 
 		flow->detected_protocol.app_protocol,
 		ndpi_protocol2name(workflow->ndpi_struct, flow->detected_protocol, buf, sizeof(buf)));	
   }else{
-    sprintf(info + strlen(info), "[proto: %u/%s]",
+    sprintf(info + strlen(info), ", \"proto\":\"%u/%s\"",
 		flow->detected_protocol.app_protocol, app_protocol_name);
   }
 
   if(flow->detected_protocol.category != 0){
-    sprintf(info + strlen(info), "[cat: %s]", 
+    sprintf(info + strlen(info), ", \"cat\":\"%s\"", 
 		ndpi_category_get_name(workflow->ndpi_struct, flow->detected_protocol.category));
   }
 
-  sprintf(info + strlen(info), "[%u pkts/%llu bytes ",
-  	      flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes);
-
-  sprintf(info + strlen(info), "%s %u pkts/%llu bytes]",
+  sprintf(info + strlen(info), ", \"flow_size\":\"%u pkts/%llu bytes %s %u pkts/%llu bytes\"",
+  	      flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes, 
   	      flow->dst2src_packets > 0 ? "<->" : "->", 
   	      flow->dst2src_packets, (long long unsigned int) flow->dst2src_bytes);
 
   if(flow->host_server_name[0] != '\0'){
-    sprintf(info + strlen(info), "[Host: %s]", flow->host_server_name);
+    snprintf(info + strlen(info), sizeof(flow->host_server_name), ", \"host\":\"%s\"", flow->host_server_name);
   }
 
   if(flow->ssh_ssl.client_info[0] != '\0'){
-    sprintf(info + strlen(info), "[client: %s]", flow->ssh_ssl.client_info);
+    snprintf(info + strlen(info), sizeof(flow->ssh_ssl.client_info), ", \"client\":\"%s\"", flow->ssh_ssl.client_info);
   }
 
   if(flow->ssh_ssl.server_info[0] != '\0'){
-    sprintf(info + strlen(info), "[server: %s]", flow->ssh_ssl.server_info);
+    snprintf(info + strlen(info), sizeof(flow->ssh_ssl.server_info), ", \"server\":\"%s\"", flow->ssh_ssl.server_info);
   }
 
   if(flow->bittorent_hash[0] != '\0'){
-    sprintf(info + strlen(info), "[BT Hash: %s]", flow->bittorent_hash);
+    snprintf(info + strlen(info), sizeof(flow->bittorent_hash), ", \"bt_hash\":\"%s\"", flow->bittorent_hash);
   }
 
   if(flow->user_agent[0] != '\0'){
-    sprintf(info + strlen(info), "[User Agent: %s]", flow->user_agent);
+    snprintf(info + strlen(info), sizeof(flow->user_agent), ", \"user_agent\":\"%s\"", flow->user_agent);
+  }
+
+  if(flow->url[0] != '\0'){
+    snprintf(info + strlen(info), sizeof(flow->url), ", \"url\":\"%s\"", flow->url);
   }
 
   if(flow->info[0] != '\0'){
-    sprintf(info + strlen(info), "[Info: %s]", flow->info);
+    snprintf(info + strlen(info), sizeof(flow->info), ", \"info\":\"%s\"", flow->info);
   }
 
+  sprintf(info + strlen(info), "}");
+  info[strlen(info)] = '\0';
   log_info(info);
 }
 
@@ -744,7 +752,12 @@ static struct ndpi_proto packet_processing(struct ndpi_workflow * workflow,
     } else if(ndpi_flow != NULL) {
       /* If this wasn't NULL we should do the half free */
       /* TODO: When half_free is deprecated, get rid of this */
-      ndpi_free_flow_info_half(flow);
+      // ndpi_free_flow_info_half(flow);
+
+	  struct ndpi_proto detect_proto = flow->detected_protocol;
+	  ndpi_flow_info_freer(flow);
+	  log_debug("flow->detection_completed, ndpi_flow != NULL");
+	  return detect_proto;
     }
 
     return(flow->detected_protocol);
@@ -755,10 +768,19 @@ static struct ndpi_proto packet_processing(struct ndpi_workflow * workflow,
 				  iph ? (uint8_t *)iph : (uint8_t *)iph6,
 				  ipsize, time, src, dst);
 
-  if(ndpi_flow->http.user_agent)  {  	
+  if(ndpi_flow->http.user_agent != NULL)  {  	
   	memset(flow->user_agent, 0, sizeof(flow->user_agent));  	
-  	memcpy(flow->user_agent, ndpi_flow->http.user_agent, strlen(ndpi_flow->http.user_agent)); 
+	int agent_len = (strlen(ndpi_flow->http.user_agent) > sizeof(flow->user_agent) - 1 ? sizeof(flow->user_agent) - 1 : strlen(ndpi_flow->http.user_agent));
+  	strncpy(flow->user_agent, ndpi_flow->http.user_agent, agent_len);
+	flow->user_agent[agent_len] = '\0';
   }	
+
+  if(ndpi_flow->http.url != NULL){
+    memset(flow->url, 0, sizeof(flow->url));	
+	int url_len = (strlen(ndpi_flow->http.url) > sizeof(flow->url) - 1 ? sizeof(flow->url) - 1 : strlen(ndpi_flow->http.url));
+	strncpy(flow->url, ndpi_flow->http.url, url_len);
+	flow->url[url_len] = '\0';
+  }
 
   if(flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN){
   	print_flow(flow, workflow);
@@ -778,8 +800,6 @@ static struct ndpi_proto packet_processing(struct ndpi_workflow * workflow,
 						      flow->ndpi_flow);
     process_ndpi_collected_info(workflow, flow);
   }
-
-  
 
   return(flow->detected_protocol);
 }

@@ -32,7 +32,9 @@
 
 #define ZLOG_MAX_INT32_VALUE   (uint32_t) 0x7fffffff
 
-#define MAXLEN_PATH 1024
+//#define MAXLEN_PATH 1024
+#define MAXLEN_PATH 2048
+
 #define MAXLEN_CFG_LINE (MAXLEN_PATH * 4)
 
 #define FILE_NEWLINE "\n"

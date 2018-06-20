@@ -111,7 +111,7 @@ int get_sniff_devs_from_file(char *file_path){
         if((p = strtok(NULL, "=")) != NULL){
 		  char val_str[MAX_BUF_LEN] = {0}; 	
           strcpy(val_str, p);
-		  char *v = strtok(val_str, " ");
+		  char *v = strtok(val_str, ",");
 		  char trim_v[MAX_BUF_LEN] = {0};
 		  if(v != NULL){
 			if(trim(v, trim_v) != RET_SUCCESS){
@@ -120,7 +120,7 @@ int get_sniff_devs_from_file(char *file_path){
 			
 			strcpy(sniff_devs[0], trim_v);
 			int i = 1;
-			while(v = strtok(NULL, " ")){
+			while(v = strtok(NULL, ",")){
 			  memset(trim_v, 0, MAX_BUF_LEN);
 			  if(trim(v, trim_v) != RET_SUCCESS){
 			    break;

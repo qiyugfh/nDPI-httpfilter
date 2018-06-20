@@ -879,7 +879,7 @@ static void init_string_based_protocols(struct ndpi_detection_module_struct *ndp
 
 /* ******************************************************************** */
 
-static int ndpi_set_detection_preferences(struct ndpi_detection_module_struct *ndpi_mod,
+int ndpi_set_detection_preferences(struct ndpi_detection_module_struct *ndpi_mod,
 				   ndpi_detection_preference pref,
 				   int value) {
   switch(pref) {
