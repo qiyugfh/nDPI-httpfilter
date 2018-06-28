@@ -14,16 +14,15 @@ make
 
 ### Run
 ```
-chmod 777 run.sh
-sudo ./run.sh
-sudo ./run.sh start
-sudo ./run.sh status
-sudo ./run.sh stop
+bash run.sh start
+bash run.sh status
+bash run.sh stop
+bash run.sh restart
 ```
 
 ### Output
 ```
 cat run.log
-cat output/201806/08.log
+cat output/httpfilter.log
 tail -n 100 output/201806/08/01.info
 ```

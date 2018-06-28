@@ -77,10 +77,10 @@ typedef struct ndpi_flow_info {
   ndpi_protocol detected_protocol;
 
   char info[96];
-  char host_server_name[256];
+  char host_server_name[128];
   char bittorent_hash[41];
-  char user_agent[256];	
-  char url[512];
+  char user_agent[128];	
+  char url[128];
   struct {
     char client_info[48], server_info[48];
   } ssh_ssl;

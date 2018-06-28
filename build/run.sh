@@ -1,45 +1,50 @@
 #!/bin/bash
+
 project_name="ndpi-httpfilter"
-path=`pwd`
-log_file=$path"/run.log"
+
+path=$( cd $(dirname $0); pwd )
+echo "current path: "${path}
+
+log_file=${path}"/run.log"
+echo "log file path: "${path}
 
 function write_log() {
   local output=$1
-  echo "[`date +'%Y-%m-%d %H:%M:%S'`] $output"
-  echo "[`date +'%Y-%m-%d %H:%M:%S'`] $output" >> $log_file 2>&1
+  echo "[`date +'%Y-%m-%d %H:%M:%S'`] ${output}"
+  echo "[`date +'%Y-%m-%d %H:%M:%S'`] ${output}" >> ${log_file} 2>&1
 }
 
 function status() {
-  ps -ef | grep -w $project_name | grep -v grep
+  ps -ef | grep -w ${project_name} | grep -v grep
   if [ $? -eq 0 ]; then
-    write_log "$project_name process is started ..."
+    write_log "${project_name} process is started ..."
   else
-    write_log "$project_name process is stopped ..."
+    write_log "${project_name} process is stopped ..."
   fi
 }
 
 function start() {
   while true; do
-    ps -ef | grep -w $project_name | grep -v grep
+    ps -ef | grep -w ${project_name} | grep -v grep
     if [ $? -eq 0 ]; then
-      write_log "$project_name process is running ..."
+      write_log "${project_name} process is running ..."
       exit 0
     else
-      write_log "no $project_name process, now start it ..."
+      write_log "no ${project_name} process, now start it ..."
       ulimit -c unlimited
-      ./$project_name &
+      ./${project_name} &
     fi
     sleep 5
   done
 }
   
 function stop() {
-  write_log "$project_name process is stopping ..."
-  killall -s TERM $project_name
+  write_log "${project_name} process is stopping ..."
+  killall -s TERM ${project_name}
 }
 
 function restart() {
-  write_log "$project_name process is restarting, please wait ..."
+  write_log "${project_name} process is restarting, please wait ..."
   stop
   start
 }

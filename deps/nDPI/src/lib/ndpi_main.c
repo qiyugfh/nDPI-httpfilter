@@ -113,8 +113,8 @@ void * ndpi_tdelete(const void *vkey, void **vrootp,
   ndpi_node **rootp = (ndpi_node **)vrootp;
   char *key = (char *)vkey;
   ndpi_node *p = (ndpi_node *)1;
-  ndpi_node *q;
-  ndpi_node *r;
+  ndpi_node *q = (ndpi_node *)0;
+  ndpi_node *r = (ndpi_node *)0;
   int cmp;
 
   if(rootp == (ndpi_node **)0 || *rootp == (ndpi_node *)0)
@@ -355,6 +355,11 @@ void * ndpi_calloc(unsigned long count, size_t size)
 /* ****************************************** */
 
 void ndpi_free(void *ptr) {
+  if(ptr == (void *) 0){
+	printf("nullptr can not free !!!");
+	return 0;
+  }
+  	
   if(_ndpi_free)
     _ndpi_free(ptr);
   else

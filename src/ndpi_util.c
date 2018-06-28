@@ -198,6 +198,10 @@ struct ndpi_workflow* ndpi_workflow_init(const struct ndpi_workflow_prefs * pref
 /* ***************************************************** */
 
 void ndpi_flow_info_freer(void *node) {
+  if(node == (void *) 0){
+	log_warn("nullptr can not free !!!");
+	return;
+  }
   struct ndpi_flow_info *flow = (struct ndpi_flow_info*)node;
 
   ndpi_free_flow_info_half(flow);
@@ -606,7 +610,7 @@ static void print_flow(struct ndpi_flow_info *flow, struct ndpi_workflow *workfl
 	return;
   }
 
-  char info[2048] = {0};
+  char info[1024] = {0};
 
   sprintf(info, "{");
   sprintf(info + strlen(info), "\"src_name\":\"%s\"", flow->src_name);
@@ -641,33 +645,33 @@ static void print_flow(struct ndpi_flow_info *flow, struct ndpi_workflow *workfl
   	      flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes, 
   	      flow->dst2src_packets > 0 ? "<->" : "->", 
   	      flow->dst2src_packets, (long long unsigned int) flow->dst2src_bytes);
-
+  
   if(flow->host_server_name[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->host_server_name), ", \"host\":\"%s\"", flow->host_server_name);
+    sprintf(info + strlen(info), ", \"host\":\"%s\"", flow->host_server_name);
   }
 
   if(flow->ssh_ssl.client_info[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->ssh_ssl.client_info), ", \"client\":\"%s\"", flow->ssh_ssl.client_info);
+    sprintf(info + strlen(info), ", \"client\":\"%s\"", flow->ssh_ssl.client_info);
   }
 
   if(flow->ssh_ssl.server_info[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->ssh_ssl.server_info), ", \"server\":\"%s\"", flow->ssh_ssl.server_info);
+    sprintf(info + strlen(info), ", \"server\":\"%s\"", flow->ssh_ssl.server_info);
   }
 
   if(flow->bittorent_hash[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->bittorent_hash), ", \"bt_hash\":\"%s\"", flow->bittorent_hash);
+    sprintf(info + strlen(info), ", \"bt_hash\":\"%s\"", flow->bittorent_hash);
   }
 
   if(flow->user_agent[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->user_agent), ", \"user_agent\":\"%s\"", flow->user_agent);
+    sprintf(info + strlen(info), ", \"user_agent\":\"%s\"", flow->user_agent);
   }
 
   if(flow->url[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->url), ", \"url\":\"%s\"", flow->url);
+    sprintf(info + strlen(info), ", \"url\":\"%s\"", flow->url);
   }
 
   if(flow->info[0] != '\0'){
-    snprintf(info + strlen(info), sizeof(flow->info), ", \"info\":\"%s\"", flow->info);
+    sprintf(info + strlen(info), ", \"info\":\"%s\"", flow->info);
   }
 
   sprintf(info + strlen(info), "}");
@@ -770,15 +774,23 @@ static struct ndpi_proto packet_processing(struct ndpi_workflow * workflow,
 
   if(ndpi_flow->http.user_agent != NULL)  {  	
   	memset(flow->user_agent, 0, sizeof(flow->user_agent));  	
-	int agent_len = (strlen(ndpi_flow->http.user_agent) > sizeof(flow->user_agent) - 1 ? sizeof(flow->user_agent) - 1 : strlen(ndpi_flow->http.user_agent));
-  	strncpy(flow->user_agent, ndpi_flow->http.user_agent, agent_len);
+	int agent_len = strlen(ndpi_flow->http.user_agent);
+	if(agent_len > sizeof(flow->user_agent) - 1){
+	  agent_len = sizeof(flow->user_agent) - 1;
+	}
+	
+  	memcpy(flow->user_agent, ndpi_flow->http.user_agent, agent_len);
 	flow->user_agent[agent_len] = '\0';
   }	
 
   if(ndpi_flow->http.url != NULL){
     memset(flow->url, 0, sizeof(flow->url));	
-	int url_len = (strlen(ndpi_flow->http.url) > sizeof(flow->url) - 1 ? sizeof(flow->url) - 1 : strlen(ndpi_flow->http.url));
-	strncpy(flow->url, ndpi_flow->http.url, url_len);
+	int url_len = strlen(ndpi_flow->http.url); 
+    if(url_len > sizeof(flow->url) - 1){
+	  url_len = sizeof(flow->url) - 1;
+  	}
+
+	memcpy(flow->url, ndpi_flow->http.url, url_len);
 	flow->url[url_len] = '\0';
   }
 
