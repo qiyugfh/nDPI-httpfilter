@@ -106,6 +106,11 @@ static void *malloc_wrapper(size_t size) {
  * @brief free wrapper function
  */
 static void free_wrapper(void *freeable) {
+  if(freeable == (void *) 0){
+    log_warn("nullptr can not free !!!");
+	return;
+  }
+
   free(freeable);
 }
 

@@ -32,8 +32,8 @@
 #include <pcap.h>
 #include "ndpi_api.h"
 
-
-#define MAX_NUM_READER_THREADS     16
+#define MAX_NUM_PCAP_THREAD		2
+#define MAX_NUM_READER_PROCESS     16
 #define IDLE_SCAN_PERIOD           10 /* msec (use TICK_RESOLUTION = 1000) */
 #define MAX_IDLE_TIME           30000
 #define IDLE_SCAN_BUDGET         1024

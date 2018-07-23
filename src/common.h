@@ -23,7 +23,7 @@ extern const char *filter_exp_key;
 extern char sniff_devs[MAX_SNIFF_DEVS_COUNT][MAX_BUF_LEN];
 extern char filter_exp[MAX_BUF_LEN];
 extern zlog_category_t *root_category;
-extern int num_threads;
+extern int num_process;
 
 
 #define print_out(...) fprintf(stdout, __VA_ARGS__)
