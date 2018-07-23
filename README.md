@@ -6,8 +6,8 @@ Its functions include monitoring where the HTTP packets go, analyzing the packet
 
 ### Compile
 Before compiling, you need to ensure that "cmake", "libpcap-dev", "cronolog", "boost", "activemq cpp" are installed on the machine.  
-https://github.com/qiyugfh/nDPI-httpfilter/HowToInstallBoost.md  
-https://github.com/qiyugfh/nDPI-httpfilter/HowToInstallActiveMQ-CPP.md  
+https://github.com/qiyugfh/nDPI-httpfilter/blob/master/HowToInstallActiveMQ-CPP.md    
+https://github.com/qiyugfh/nDPI-httpfilter/blob/master/HowToInstallBoost.md    
 
 ```
 cd nDPI-httpfilter/build
