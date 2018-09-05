@@ -380,9 +380,24 @@ int main(int argc, char **argv){
   }  	
 #endif
 
-  char *config_path = "../ndpi-httpfilter.conf";
-  char *logging_path = "../ndpi-logging.conf";
+  char root_path[514] = {0};
+  char config_path[512] = {0};
+  char logging_path[512] = {0};
+  // get current exe execute path
+  if(readlink("/proc/self/exe", root_path, sizeof(root_path)) <= 0){
+    return RET_ERROR;
+  }
+  char *path_end = strrchr(root_path, '/');
+  if(path_end == NULL){
+    return RET_ERROR;
+  }	
+  *path_end = '\0';
 
+  sprintf(config_path, "%s/ndpi-httpfilter.conf", root_path);
+  sprintf(logging_path, "%s/ndpi-logging.conf", root_path);
+  printf("ndpi http filter configure file path: %s\n", config_path);
+  printf("ndpi log configure file path: %s\n", logging_path);
+  
   root_category= init_logger(logging_path, "main");
   if(root_category == NULL){
     return RET_ERROR;

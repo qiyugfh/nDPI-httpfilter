@@ -32,7 +32,7 @@ function start() {
     else
       write_log "no ${project_name} process, now start it ..."
       ulimit -c unlimited
-      ./${project_name} &
+      ${path}/${project_name} &
     fi
     sleep 5
   done
