@@ -14,13 +14,29 @@ function write_log(){
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] ${output}" >> ${log_file} 2>&1
 }
 
+
+export JAVA_HOME=/usr/java/jdk1.8.0_161
+export JRE_HOME=${JAVA_HOME}/jre
+export CLASSPATH=${JAVA_HOME}/lib
+export HADOOP_HOME=/opt/distribution/hadoop
+export SPARK_HOME=/opt/distribution/spark
+export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:$PATH
+
+export ZLOG_PROFILE_DEBUG="${path}/zlog_debug.log"
+export ZLOG_PROFILE_ERROR="${path}/zlog_error.log"
+
+
+rm *.log
 write_log "start the script to process start.sh ..."
+
+/sbin/ifconfig eno1 promisc
+
+/bin/bash /opt/distribution/hadoop/sbin/start-dfs.sh
+
+/bin/bash /home/loocha/fanghua/nDPI-httpfilter/build/put.sh
 
 write_log "restart activemq ..."
 /etc/init.d/activemq restart
-
-export ZLOG_PROFILE_DEBUG=/home/loocha/fanghua/nDPI-httpfilter/build/zlog_debug.log
-export ZLOG_PROFILE_ERROR=/home/loocha/fanghua/nDPI-httpfilter/build/zlog_error.log
 
 write_log "start run script: ${path}/run.sh"
 /bin/bash "${path}/run.sh" start
