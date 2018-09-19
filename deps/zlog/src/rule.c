@@ -41,6 +41,21 @@
 
 #include "zc_defs.h"
 
+#include "sys/mman.h"
+
+#define PAGE_SIZE 4096
+
+
+static int g_fd = -1;
+static long long g_cur_file_pos = 0;
+static long long g_cur_file_size = 0;
+static long g_cur_page_count = 0;
+static long g_cur_offset_pos = 0;	
+static char *g_cur_log_file_path = NULL; 
+static char *g_cur_mmap_addr = NULL;
+static pthread_rwlock_t g_mmap_file_lock = PTHREAD_RWLOCK_INITIALIZER;
+
+
 
 void zlog_rule_profile(zlog_rule_t * a_rule, int flag)
 {
@@ -199,7 +214,8 @@ static int zlog_rule_output_static_file_rotate(zlog_rule_t * a_rule, zlog_thread
 	zlog_buf_seal(a_thread->path_buf);    \
 } while(0)
 
-
+// zlog source code
+#if 0
 static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_thread_t * a_thread)
 {
 	int fd;
@@ -218,6 +234,7 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 		return -1;
 	}
 
+    printf("zlog_rule_output_dynamic_file_single write msg:%s \n", a_thread->msg_buf->start);
 	if (write(fd, zlog_buf_str(a_thread->msg_buf), zlog_buf_len(a_thread->msg_buf)) < 0) {
 		zc_error("write fail, errno[%d]", errno);
 		close(fd);
@@ -236,6 +253,138 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 
 	return 0;
 }
+
+#else
+// modify by fanghua 2018-09-14
+static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_thread_t * a_thread)
+{
+
+	char *new_log_file_path = NULL;
+	char *msg_buffer = NULL;
+	int msg_write_len = 0;
+	int len = 0; 
+
+	zlog_rule_gen_path(a_rule, a_thread);
+
+	if (zlog_format_gen_msg(a_rule->format, a_thread)) {
+		zc_error("zlog_format_output fail");
+		return -1;
+	}
+
+
+	pthread_rwlock_rdlock(&g_mmap_file_lock);
+
+	new_log_file_path = zlog_buf_str(a_thread->path_buf);
+
+	if(g_cur_log_file_path == NULL 
+		|| strcmp(new_log_file_path, g_cur_log_file_path) != 0)
+		{
+		if(zlog_rule_output_dynamic_file_signal_del() < 0){
+			pthread_rwlock_unlock(&g_mmap_file_lock);
+			return -1;
+		}
+
+		g_cur_log_file_path = new_log_file_path;
+		//printf("open log file: %s\n", g_cur_log_file_path);
+
+		g_fd = open(g_cur_log_file_path, O_RDWR | O_CREAT, 0666);
+		if (g_fd < 0) {
+			zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
+			pthread_rwlock_unlock(&g_mmap_file_lock);
+			return -1;
+		}
+
+		// get current file length
+		struct stat sbuff;
+		fstat(g_fd, &sbuff);
+		g_cur_file_pos = sbuff.st_size;
+		g_cur_file_size = sbuff.st_size;
+		g_cur_page_count = g_cur_file_size / PAGE_SIZE;
+		if(g_cur_file_size == 0 || g_cur_file_size % PAGE_SIZE != 0){
+			g_cur_page_count += 1;
+		}	
+
+		g_cur_file_size = g_cur_page_count * PAGE_SIZE;
+		g_cur_offset_pos = (g_cur_page_count - 1) * PAGE_SIZE;
+			
+		// enlarge the file's size equal the integer multiple of the page size
+		ftruncate(g_fd, g_cur_file_size);
+    
+		g_cur_mmap_addr = mmap(0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_fd, g_cur_offset_pos);
+		if(g_cur_mmap_addr == MAP_FAILED){
+			perror("map fail !!!");
+			close(g_fd);
+			pthread_rwlock_unlock(&g_mmap_file_lock);
+			exit(-1);
+		}
+		
+	}
+
+	msg_buffer = zlog_buf_str(a_thread->msg_buf);
+	int msg_len = zlog_buf_len(a_thread->msg_buf);
+        //printf("%s\n", msg_buffer);
+
+	while(g_cur_file_pos + msg_len - msg_write_len >= g_cur_file_size){
+		len = g_cur_file_size - g_cur_file_pos;
+		if(len > 0){
+			memcpy(g_cur_mmap_addr + g_cur_file_pos - g_cur_offset_pos, msg_buffer + msg_write_len, len);
+			msg_write_len += len;
+			g_cur_file_pos += len;
+		}
+
+		//msync(g_cur_mmap_addr, PAGE_SIZE, MS_SYNC);
+		munmap(g_cur_mmap_addr, PAGE_SIZE);
+		
+		g_cur_page_count++;
+		g_cur_file_size += PAGE_SIZE;
+		g_cur_offset_pos = (g_cur_page_count - 1) * PAGE_SIZE;
+
+		ftruncate(g_fd, g_cur_file_size);
+		
+		g_cur_mmap_addr = mmap(0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_fd, g_cur_offset_pos);
+		if(g_cur_mmap_addr == MAP_FAILED){
+			perror("map fail !!!");
+			close(g_fd);
+			pthread_rwlock_unlock(&g_mmap_file_lock);
+			exit(-1);
+		}
+	}
+
+	len = msg_len - msg_write_len;
+	if(len > 0){
+		memcpy(g_cur_mmap_addr + g_cur_file_pos - g_cur_offset_pos, msg_buffer + msg_write_len, len);
+		g_cur_file_pos += len;
+	}
+
+	//zlog_rule_output_dynamic_file_signal_del();
+	pthread_rwlock_unlock(&g_mmap_file_lock);
+	return 0;
+}
+
+#endif
+
+int zlog_rule_output_dynamic_file_signal_del(){
+	if(g_fd >= 0){
+		msync(g_cur_mmap_addr, PAGE_SIZE, MS_SYNC);
+		munmap(g_cur_mmap_addr, PAGE_SIZE);
+		ftruncate(g_fd, g_cur_file_pos);
+		//printf("close log file: %s\n", g_cur_log_file_path);
+		if (close(g_fd) < 0) {
+			zc_error("close fail, maybe cause by write, errno[%d]", errno);
+			return -1;
+		}
+
+		g_fd = -1;
+		g_cur_file_pos = 0;
+		g_cur_file_size = 0;
+		g_cur_page_count = 0;
+		g_cur_offset_pos = 0;
+		g_cur_log_file_path = NULL; 
+		g_cur_mmap_addr = NULL;
+	}
+	return 0;
+}
+
 
 static int zlog_rule_output_dynamic_file_rotate(zlog_rule_t * a_rule, zlog_thread_t * a_thread)
 {
@@ -894,7 +1043,7 @@ err:
 void zlog_rule_del(zlog_rule_t * a_rule)
 {
 	zc_assert(a_rule,);
-	if (a_rule->dynamic_specs) {
+    if (a_rule->dynamic_specs) {
 		zc_arraylist_del(a_rule->dynamic_specs);
 		a_rule->dynamic_specs = NULL;
 	}
@@ -912,6 +1061,9 @@ void zlog_rule_del(zlog_rule_t * a_rule)
 		zc_arraylist_del(a_rule->archive_specs);
 		a_rule->archive_specs = NULL;
 	}
+	
+	zlog_rule_output_dynamic_file_signal_del();
+
 	free(a_rule);
 	zc_debug("zlog_rule_del[%p]", a_rule);
 	return;

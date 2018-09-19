@@ -330,6 +330,13 @@ exit:
 	}
 	return;
 }
+
+void zlog_close(){
+	pthread_rwlock_rdlock(&zlog_env_lock);
+	zlog_rule_output_dynamic_file_signal_del();
+	pthread_rwlock_unlock(&zlog_env_lock);
+}
+
 /*******************************************************************************/
 zlog_category_t *zlog_get_category(const char *cname)
 {

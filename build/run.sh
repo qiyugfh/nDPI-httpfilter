@@ -8,6 +8,8 @@ echo "current path: "${path}
 log_file=${path}"/run.log"
 echo "log file path: "${path}
 
+$(mkdir -p /var/log/ndpilogs)
+
 function write_log() {
   local output=$1
   echo "[`date +'%Y-%m-%d %H:%M:%S'`] ${output}"

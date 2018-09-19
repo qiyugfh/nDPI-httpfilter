@@ -46,16 +46,13 @@ log_file = ''
 if len(sys.argv) == 2:
     log_file = sys.argv[1]
 else:
-    date = (datetime.today() - timedelta(hours=1)).strftime("%Y%m%d %H")
-    log_file = "/data/ndpilogs/%s/%s/%s.info" % (date[0:6], date[6:8], date[-2:])
+    date = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
+    log_file = "/data/ndpilogs/%s_*.info" % date
 
 print("parse log file: %s" % log_file)
-# log_file = "/data/ndpilogs/201808/20/15.info"
 
-month = re.search(r'\/\d{6}\/', log_file).group(0)[1:]
-day = re.search(r'\/\d{2}\/', log_file).group(0)[1:]
-hour = re.search(r'\/\d{2}.info', log_file).group(0).split('.')[0][1:]
-save_file = "/results/httptraffic/%s%s%s" % (month, day, hour)
+date = re.search(r'\/\d{8}_', log_file).group(0).split('_')[0][1:]
+save_file = "/results/httptraffic/%s" % date
 
 hdfs_host = "hdfs://localhost:9000"
 file1 = "%s%s_src_traffic.csv" % (hdfs_host, save_file)

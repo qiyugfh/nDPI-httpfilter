@@ -27,5 +27,5 @@ bash run.sh restart
 ```
 cat run.log
 cat output/httpfilter.log
-tail -n 100 output/201806/08/01.info
+tail -n 100 /var/log/ndpilog/20180919_23273.info
 ```

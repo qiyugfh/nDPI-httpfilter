@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# put the previous hour's log to hdfs
+# put the previous day's log to hdfs
 # crontab file contents :
 # @reboot /bin/bash /home/loocha/fanghua/nDPI-httpfilter/build/start.sh >/home/loocha/fanghua/nDPI-httpfilter/build/start.log 2>&1
 # 1 * * * * /bin/bash /home/loocha/fanghua/nDPI-httpfilter/build/put.sh >/home/loocha/fanghua/nDPI-httpfilter/build/put.log 2>&1
@@ -28,34 +28,30 @@ export PATH=${JAVA_HOME}/bin:${HADOOP_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/
 write_log "$(echo $PATH)"
 
 
-date=$(date -d "-1 hour" +'%Y%m%d %H')
-month=${date:0:6}
-day=${date:6:2}
-hour=${date:0-2:2}
+date=$(date -d "-1 day" +'%Y%m%d')
 
-previous_hour_log="/var/log/ndpilogs/${month}/${day}/${hour}.info"
-hdfs_path="/data/ndpilogs/${month}/${day}"
-hdfs_file="${hdfs_path}/${hour}.info"
+previous_day_log="/var/log/ndpilogs/${date}_*.info"
+hdfs_path="/data/ndpilogs"
+hdfs_file="${hdfs_path}/${date}_*.info"
 
-write_log "put the previous hour's log file to hdfs"
-write_log "local file: ${previous_hour_log}"
+write_log "put the previous day's log file to hdfs"
+write_log "local file: ${previous_day_log}"
 write_log "hdfs file: ${hdfs_file}"
 
-hdfs dfs -mkdir ${hdfs_path}
-hdfs dfs -put -f ${previous_hour_log} ${hdfs_path}
+hdfs dfs -put -f ${previous_day_log} ${hdfs_path}
 
 spark-submit "${path}/httptraffic.py" "${hdfs_file}" >> ${log_file} 2>&1
 save_file_postfix_list=("_src_traffic"
 			"_agent_url_traffic")
 
 for file_postfix  in ${save_file_postfix_list[@]}; do
-	hfile="/results/httptraffic/${month}/${day}/${hour}${file_postfix}.csv"
-	lpath="/usr/local/src/httptraffic/${month}/${day}"
-	lfile="${lpath}/${hour}${file_postfix}.csv"
+	hfile="/results/httptraffic/${date}${file_postfix}.csv"
+	lpath="/usr/local/src/httptraffic"
+	lfile="${lpath}/${date}${file_postfix}.csv"
 	hdfs dfs -getmerge ${hfile} ${lfile}
 	cd ${lpath}
-	tar cvf "${hour}${file_postfix}.tar" "${hour}${file_postfix}.csv" --remove-files
-	rm ".${hour}${file_postfix}.csv.crc"
+	tar cvf "${date}${file_postfix}.tar" "${date}${file_postfix}.csv" --remove-files
+	rm ".${date}${file_postfix}.csv.crc"
 done
 
 write_log "exit the script ..."

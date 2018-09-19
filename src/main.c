@@ -367,6 +367,8 @@ static void threads_terminate(){
 
 static void main_process_terminate(int sid){
   log_debug("process %ld recive the ternimate signal %d, now exit ...\n", (long)getpid(), sid);
+  zlog_close();
+
   shutdown_app = 1;
   threads_terminate();
   exit(RET_SUCCESS);
