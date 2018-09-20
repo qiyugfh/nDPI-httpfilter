@@ -271,7 +271,6 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 		return -1;
 	}
 
-
 	pthread_rwlock_rdlock(&g_mmap_file_lock);
 
 	new_log_file_path = zlog_buf_str(a_thread->path_buf);
@@ -283,9 +282,11 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 			pthread_rwlock_unlock(&g_mmap_file_lock);
 			return -1;
 		}
-
-		g_cur_log_file_path = new_log_file_path;
-		//printf("open log file: %s\n", g_cur_log_file_path);
+		
+		int path_len = strlen(new_log_file_path);
+		g_cur_log_file_path = (char *)malloc(path_len);
+		memset(g_cur_log_file_path, 0, path_len);
+		memcpy(g_cur_log_file_path, new_log_file_path, path_len);
 
 		g_fd = open(g_cur_log_file_path, O_RDWR | O_CREAT, 0666);
 		if (g_fd < 0) {
@@ -379,8 +380,11 @@ int zlog_rule_output_dynamic_file_signal_del(){
 		g_cur_file_size = 0;
 		g_cur_page_count = 0;
 		g_cur_offset_pos = 0;
-		g_cur_log_file_path = NULL; 
 		g_cur_mmap_addr = NULL;
+		if(!g_cur_log_file_path){
+			free(g_cur_log_file_path);
+			g_cur_log_file_path= NULL;
+		}
 	}
 	return 0;
 }
