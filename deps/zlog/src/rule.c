@@ -274,7 +274,7 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 	pthread_rwlock_rdlock(&g_mmap_file_lock);
 
 	new_log_file_path = zlog_buf_str(a_thread->path_buf);
-	int path_len = strlen(new_log_file_path);
+	int path_len = zlog_buf_len(a_thread->path_buf);
 	if(g_cur_log_file_path == NULL 
 		|| strncmp(new_log_file_path, g_cur_log_file_path, path_len) != 0)
 		{
