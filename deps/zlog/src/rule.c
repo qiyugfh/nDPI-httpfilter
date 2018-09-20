@@ -274,20 +274,20 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 	pthread_rwlock_rdlock(&g_mmap_file_lock);
 
 	new_log_file_path = zlog_buf_str(a_thread->path_buf);
-
+	int path_len = strlen(new_log_file_path);
 	if(g_cur_log_file_path == NULL 
-		|| strcmp(new_log_file_path, g_cur_log_file_path) != 0)
+		|| strncmp(new_log_file_path, g_cur_log_file_path, path_len) != 0)
 		{
 		if(zlog_rule_output_dynamic_file_signal_del() < 0){
 			pthread_rwlock_unlock(&g_mmap_file_lock);
 			return -1;
 		}
 		
-		int path_len = strlen(new_log_file_path);
-		g_cur_log_file_path = (char *)malloc(path_len);
+		g_cur_log_file_path = (char *)malloc(path_len + 1);
 		memset(g_cur_log_file_path, 0, path_len);
 		memcpy(g_cur_log_file_path, new_log_file_path, path_len);
-
+		g_cur_log_file_path[path_len] = '\0';
+		
 		g_fd = open(g_cur_log_file_path, O_RDWR | O_CREAT, 0666);
 		if (g_fd < 0) {
 			zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
