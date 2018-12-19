@@ -1,5 +1,5 @@
 ### Introduce
-This is a project that uses the nDPI library to filter http protocol.   
+This is a project of using the nDPI library to filter http protocol.   
 The nDPI source code link: https://github.com/ntop/nDPI  
 Its functions include monitoring where the HTTP packets go, analyzing the packet's IP address, Host, user agent, and so on.  
 
